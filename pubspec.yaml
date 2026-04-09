@@ -1,7 +1,7 @@
 name: big_dec
 description: A library for big calculations.
 version: 0.0.9+9
-# repository: https://github.com/my_org/my_repo
+repository: https://github.com/LiveUser/big_dec
 
 environment:
   sdk: ^3.7.2
