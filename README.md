@@ -86,37 +86,3 @@ BigDec bigDec1 = BigDec.fromString("-25");
 BigDec result = bigDec1.abs();
 print(result.toString());
 ~~~
-
-## GPU Acceleration
-Initialize the GPU before using hardware-accelerated methods. These methods utilize WGSL compute shaders for high-throughput calculations.
-
-### Initialize GPU
-~~~dart
-await BigDec.initGPU();
-~~~
-
-### GPU Multiplication
-~~~dart
-BigDec bigDec1 = BigDec.fromString("1234.56");
-BigDec bigDec2 = BigDec.fromString("78.9");
-BigDec result = await bigDec1.gpuMultiply(bigDec2);
-print(result.toString());
-~~~
-
-### GPU Batch Multiplication
-Process multiple calculations simultaneously on the GPU for maximum performance.
-~~~dart
-List<BigDec> listA = [BigDec.fromString("10"), BigDec.fromString("20")];
-List<BigDec> listB = [BigDec.fromString("5"), BigDec.fromString("2")];
-List<BigDec> results = await BigDec.gpuBatchMultiply(listA, listB);
-~~~
-
-### Other GPU Methods
-The following methods are also available for GPU-based calculations:
-~~~dart
-BigDec resultAdd = await bigDec1.gpuAdd(bigDec2);
-BigDec resultSub = await bigDec1.gpuSubtract(bigDec2);
-BigDec resultDiv = await bigDec1.gpuDivide(bigDec2);
-BigDec resultSqrt = await bigDec1.gpuSqrt();
-BigDec resultPow = await bigDec1.gpuPow(BigInt.from(3));
-~~~

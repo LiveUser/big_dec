@@ -1,6 +1,4 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
-// import 'package:gpux/gpux.dart'; // Keep your import, but specific bindings will need package-specific factories
 
 class BigDec {
   final BigInt _integer;
@@ -164,30 +162,4 @@ class BigDec {
     decimalAsString = decimalsList.join().padRight(decimalPlaces, '0');
     return decimalPlaces == 0 ? integerPart.toString() : "${integerPart.toString()}.$decimalAsString";
   }
-
-  // --- GPU ACCELERATION (Safe Fallbacks) ---
-
-  // I have retained the WGSL logic here so you have a reference for how to write the WebGPU shader
-  // once you find the correct factory constructors for BindGroups in your specific package version.
-  static const String wgslMultiplyLogic = """
-    // ... [WGSL logic from previous response remains valid for the hardware] ...
-  """;
-
-  static Future<List<BigDec>> gpuBatchMultiply(List<BigDec> aList, List<BigDec> bList, {int? precisionOverride}) async {
-    if (aList.length != bList.length) throw Exception("Batch lists must match in length.");
-    
-    // Fallback: Processes on CPU until pipeline is correctly mapped
-    List<BigDec> results = [];
-    for(int i = 0; i < aList.length; i++){
-        results.add(aList[i].multiply(bList[i], precisionOverride: precisionOverride));
-    }
-    return results;
-  }
-
-  Future<BigDec> gpuMultiply(BigDec number, {int? precisionOverride}) async => multiply(number, precisionOverride: precisionOverride);
-  Future<BigDec> gpuAdd(BigDec n, {int? p}) async => add(n, precisionOverride: p);
-  Future<BigDec> gpuSubtract(BigDec n, {int? p}) async => subtract(n, precisionOverride: p);
-  Future<BigDec> gpuDivide(BigDec d, {int? p}) async => divide(d, precisionOverride: p);
-  Future<BigDec> gpuSqrt({int? p}) async => sqrt(precisionOverride: p);
-  Future<BigDec> gpuPow(BigInt exp, {int? p}) async => pow(exp, precisionOverride: p);
 }

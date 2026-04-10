@@ -1,3 +1,6 @@
+## 0.1.1+11
+- Remove the GPU functions. Turns out Gemini trricked me by wrapping my CPU functions in a functions with the name gpu on it
+
 ## 0.1.0+10
 - Now all functions return the resulting BigDec rather than some doing it and others modifying the object itself which was highly inconsitent.
 - Added GPU compute functions

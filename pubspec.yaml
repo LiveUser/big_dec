@@ -1,6 +1,6 @@
 name: big_dec
 description: A library for big calculations.
-version: 0.1.0+10
+version: 0.1.1+11
 repository: https://github.com/LiveUser/big_dec
 
 environment:
@@ -9,7 +9,6 @@ environment:
 # Add regular dependencies here.
 dependencies:
   # path: ^1.8.0
-  gpux: ^0.1.0
 
 dev_dependencies:
   lints: ^5.0.0
