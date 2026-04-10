@@ -49,6 +49,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.0"
+  code_assets:
+    dependency: transitive
+    description:
+      name: code_assets
+      sha256: "83ccdaa064c980b5596c35dd64a8d3ecc68620174ab9b90b6343b753aa721687"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   collection:
     dependency: transitive
     description:
@@ -81,6 +89,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.6"
+  ffi:
+    dependency: transitive
+    description:
+      name: ffi
+      sha256: "6d7fd89431262d8f3125e81b50d3847a091d846eafcd4fdb88dd06f36d705a45"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.0"
   file:
     dependency: transitive
     description:
@@ -105,6 +121,38 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.3"
+  gpuweb:
+    dependency: transitive
+    description:
+      name: gpuweb
+      sha256: "456167d6b9bff2e7ed1ab74732963521bdad846d4a0a258d15f0670152fc7cdb"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
+  gpuweb_js:
+    dependency: transitive
+    description:
+      name: gpuweb_js
+      sha256: "31442a9338216d069105a5fe8e7971ad49ed39fd269f45d7ae0f22a110dadb3b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
+  gpux:
+    dependency: "direct main"
+    description:
+      name: gpux
+      sha256: caa99d5d147b793f9bad8cb4dc2500d9a9b74998b1baa2b7952b11b2e7b4b22a
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
+  hooks:
+    dependency: transitive
+    description:
+      name: hooks
+      sha256: e79ed1e8e1929bc6ecb6ec85f0cb519c887aa5b423705ded0d0f2d9226def388
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   http_multi_server:
     dependency: transitive
     description:
@@ -177,6 +225,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
+  native_toolchain_rust:
+    dependency: transitive
+    description:
+      name: native_toolchain_rust
+      sha256: e53ef1025e2c190333ec61f638513c890c1becf11222e27b115b03bac369c6be
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.3"
   node_preamble:
     dependency: transitive
     description:
@@ -201,6 +257,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.9.1"
+  petitparser:
+    dependency: transitive
+    description:
+      name: petitparser
+      sha256: "91bd59303e9f769f108f8df05e371341b15d59e995e6806aefab827b58336675"
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.0.2"
   pool:
     dependency: transitive
     description:
@@ -329,6 +393,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.12"
+  toml:
+    dependency: transitive
+    description:
+      name: toml
+      sha256: "35a35f782228656a2af31e8c73d1353cc4ef3d683fd68af1111b44631879c05e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.18.0"
   typed_data:
     dependency: transitive
     description:
@@ -385,6 +457,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.2.1"
+  wgpu:
+    dependency: transitive
+    description:
+      name: wgpu
+      sha256: "578b9d6e5751483cfec144962d33466c98f621a0d1fe89923289e7be8980da22"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
   yaml:
     dependency: transitive
     description:
@@ -394,4 +474,4 @@ packages:
     source: hosted
     version: "3.1.3"
 sdks:
-  dart: ">=3.7.2 <4.0.0"
+  dart: ">=3.10.0 <4.0.0"

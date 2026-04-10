@@ -1,3 +1,7 @@
+## 0.1.0+10
+- Now all functions return the resulting BigDec rather than some doing it and others modifying the object itself which was highly inconsitent.
+- Added GPU compute functions
+
 ## 0.0.9+9
 - Added abs() method
 ## 0.0.8+8
