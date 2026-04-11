@@ -1,3 +1,6 @@
+## 0.1.3+13
+- Binary numbers and arithmetic to attempt to improve performance
+
 ## 0.1.2+12
 - Used gemini to attempt to make the library more performant by storing values as List<>
 
