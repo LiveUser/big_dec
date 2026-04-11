@@ -1,165 +1,190 @@
-import 'dart:math' as math;
+import 'dart:typed_data';
 
 class BigDec {
-  final BigInt _integer;
-  final BigInt _decimal;
+  final Uint64List _limbs;
   final int _maxAmountOfDecimalPlaces;
+  final bool _isNegative;
+
+  BigDec._(this._limbs, this._maxAmountOfDecimalPlaces, {bool isNegative = false})
+      : _isNegative = isNegative;
+
+  // --- GETTERS ---
+
+  /// Returns the integer part as a BigInt.
+  BigInt get integer {
+    BigInt full = _limbsToBigInt(_limbs);
+    BigInt result = full ~/ BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
+    return _isNegative ? -result : result;
+  }
+
+  /// Returns the decimal part as a BigInt.
+  BigInt get decimal {
+    BigInt full = _limbsToBigInt(_limbs);
+    return (full % BigInt.from(10).pow(_maxAmountOfDecimalPlaces)).abs();
+  }
+
+  int get decimalPlaces => _maxAmountOfDecimalPlaces;
+
+  // --- CONSTRUCTORS & PARSERS ---
 
   BigDec({
     required BigInt integer,
     required BigInt decimal,
-    required int decimalPlaces,
-  })  : _integer = integer,
-        _decimal = decimal,
-        _maxAmountOfDecimalPlaces = decimalPlaces;
+    int decimalPlaces = 200,
+  })  : _maxAmountOfDecimalPlaces = decimalPlaces,
+        _isNegative = integer < BigInt.zero,
+        _limbs = _bigIntToLimbs((integer.abs() * BigInt.from(10).pow(decimalPlaces)) + decimal.abs());
 
-  BigInt get integer => _integer;
-  BigInt get decimal => _decimal;
-  int get decimalPlaces => _maxAmountOfDecimalPlaces;
+  factory BigDec.fromBigInt(BigInt value, {int precision = 200}) =>
+      BigDec(integer: value, decimal: BigInt.zero, decimalPlaces: precision);
 
-  static int getMaxAmountOfDecimalPlaces() => 15;
+  factory BigDec.fromInt(int value, {int precision = 200}) =>
+      BigDec.fromBigInt(BigInt.from(value), precision: precision);
 
-  // --- IMMUTABLE UTILITIES ---
+  factory BigDec.fromDouble(double value, {int precision = 200}) =>
+      BigDec.fromString(value.toString()).setDecimalPrecision(precision);
 
-  BigDec setDecimalPrecision(int precision) {
-    BigInt newDecimal = _decimal;
-    if (precision > _maxAmountOfDecimalPlaces) {
-      newDecimal *= BigInt.from(10).pow(precision - _maxAmountOfDecimalPlaces);
-    } else if (precision < _maxAmountOfDecimalPlaces) {
-      newDecimal ~/= BigInt.from(10).pow(_maxAmountOfDecimalPlaces - precision);
+  factory BigDec.fromString(String s) {
+    bool neg = s.startsWith('-');
+    String clean = neg ? s.substring(1) : s;
+    if (clean.contains(".")) {
+      var parts = clean.split(".");
+      return BigDec(
+          integer: BigInt.parse(neg ? "-${parts[0]}" : parts[0]),
+          decimal: BigInt.parse(parts[1]),
+          decimalPlaces: parts[1].length);
     }
-    return BigDec(integer: _integer, decimal: newDecimal, decimalPlaces: precision);
+    return BigDec(integer: BigInt.parse(s), decimal: BigInt.zero, decimalPlaces: 0);
   }
 
-  BigInt _normalize(BigDec other, int targetP) {
-    BigInt val = other._decimal;
-    if (other._maxAmountOfDecimalPlaces < targetP) {
-      val *= BigInt.from(10).pow(targetP - other._maxAmountOfDecimalPlaces);
-    } else if (other._maxAmountOfDecimalPlaces > targetP) {
-      val ~/= BigInt.from(10).pow(other._maxAmountOfDecimalPlaces - targetP);
+  // --- BITMATH CORE ---
+
+  BigDec add(BigDec other) {
+    if (_isNegative == other._isNegative) {
+      final res = Uint64List(12);
+      int carry = 0;
+      for (int i = 0; i < 12; i++) {
+        int sum = _limbs[i] + other._limbs[i] + carry;
+        res[i] = sum;
+        carry = (sum < _limbs[i] || (sum == _limbs[i] && carry > 0)) ? 1 : 0;
+      }
+      return BigDec._(res, _maxAmountOfDecimalPlaces, isNegative: _isNegative);
     }
-    return val;
+    return subtract(other.abs());
   }
 
-  // --- MATH OPERATIONS (CPU) ---
+  BigDec subtract(BigDec other) {
+    if (_isNegative != other._isNegative) return add(other.abs());
+    int cmp = _compareAbs(_limbs, other._limbs);
+    if (cmp == 0) return BigDec.fromInt(0, precision: _maxAmountOfDecimalPlaces);
 
-  BigDec abs() => BigDec(integer: _integer.abs(), decimal: _decimal, decimalPlaces: _maxAmountOfDecimalPlaces);
+    bool thisIsGreater = cmp > 0;
+    final res = Uint64List(12);
+    final a = thisIsGreater ? _limbs : other._limbs;
+    final b = thisIsGreater ? other._limbs : _limbs;
 
-  BigDec ceil() {
-    if (BigInt.zero < _decimal) {
-      return BigDec(integer: _integer + BigInt.one, decimal: BigInt.zero, decimalPlaces: _maxAmountOfDecimalPlaces);
+    int borrow = 0;
+    for (int i = 0; i < 12; i++) {
+      int sub = a[i] - b[i] - borrow;
+      res[i] = sub;
+      borrow = (a[i] < b[i] + borrow) ? 1 : 0;
     }
-    return this;
+    return BigDec._(res, _maxAmountOfDecimalPlaces, isNegative: thisIsGreater ? _isNegative : !_isNegative);
   }
 
-  BigDec floor() => BigDec(integer: _integer, decimal: BigInt.zero, decimalPlaces: _maxAmountOfDecimalPlaces);
+  BigDec multiply(BigDec other) {
+    BigInt v1 = _limbsToBigInt(_limbs);
+    BigInt v2 = _limbsToBigInt(other._limbs);
+    BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
+    return BigDec._(_bigIntToLimbs((v1 * v2) ~/ scale), _maxAmountOfDecimalPlaces, isNegative: _isNegative != other._isNegative);
+  }
 
-  BigDec round() => BigDec.fromString(toStringAsFixed(0));
+  BigDec divide(BigDec other) {
+    BigInt v1 = _limbsToBigInt(_limbs);
+    BigInt v2 = _limbsToBigInt(other._limbs);
+    BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
+    return BigDec._(_bigIntToLimbs((v1 * scale) ~/ v2), _maxAmountOfDecimalPlaces, isNegative: _isNegative != other._isNegative);
+  }
 
-  BigDec sqrt({int? precisionOverride}) {
-    if (_integer < BigInt.zero) throw Exception("Square root of negative number");
-    if (_integer == BigInt.zero && _decimal == BigInt.zero) return this;
-    int p = precisionOverride ?? _maxAmountOfDecimalPlaces;
-    BigInt scale = BigInt.from(10).pow(p);
-    BigInt flatValue = (_integer * scale) + _normalize(this, p);
-    BigInt valueToRoot = flatValue * BigInt.from(10).pow(p);
+  BigDec pow(BigInt exponent) {
+    BigDec res = BigDec.fromInt(1, precision: _maxAmountOfDecimalPlaces);
+    BigDec base = this;
+    BigInt e = exponent;
+    while (e > BigInt.zero) {
+      if (e.isOdd) res = res.multiply(base);
+      base = base.multiply(base);
+      e >>= 1;
+    }
+    return res;
+  }
+
+  BigDec sqrt() {
+    BigInt val = _limbsToBigInt(_limbs);
+    BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
+    BigInt valueToRoot = val * scale;
     BigInt x = BigInt.one << (valueToRoot.bitLength + 1) ~/ 2;
     BigInt y = (x + valueToRoot ~/ x) >> 1;
-    while (y < x) { x = y; y = (x + valueToRoot ~/ x) >> 1; }
-    return BigDec(integer: x ~/ scale, decimal: x % scale, decimalPlaces: p);
-  }
-
-  BigDec pow(BigInt exponent, {int? precisionOverride}) {
-    int p = precisionOverride ?? _maxAmountOfDecimalPlaces;
-    if (exponent == BigInt.zero) return BigDec.fromString("1").setDecimalPrecision(p);
-    if (exponent < BigInt.zero) {
-      return BigDec.fromString("1").setDecimalPrecision(p).divide(this.pow(-exponent, precisionOverride: p), precisionOverride: p);
+    while (y < x) {
+      x = y;
+      y = (x + valueToRoot ~/ x) >> 1;
     }
-    BigDec result = BigDec.fromString("1").setDecimalPrecision(p);
-    BigDec base = this.setDecimalPrecision(p);
-    BigInt exp = exponent;
-    while (exp > BigInt.zero) {
-      if (exp % BigInt.two == BigInt.one) result = result.multiply(base, precisionOverride: p);
-      base = base.multiply(base, precisionOverride: p);
-      exp ~/= BigInt.two;
+    return BigDec._(_bigIntToLimbs(x), _maxAmountOfDecimalPlaces);
+  }
+
+  // --- TRUNCATION & UTILITIES ---
+
+  BigDec abs() => BigDec._(_limbs, _maxAmountOfDecimalPlaces, isNegative: false);
+  BigDec floor() => BigDec(integer: integer, decimal: BigInt.zero, decimalPlaces: _maxAmountOfDecimalPlaces);
+  BigDec ceil() => (decimal > BigInt.zero) ? BigDec(integer: integer + BigInt.one, decimal: BigInt.zero, decimalPlaces: _maxAmountOfDecimalPlaces) : this;
+
+  BigDec round() {
+    BigInt half = BigInt.from(10).pow(_maxAmountOfDecimalPlaces) ~/ BigInt.two;
+    return decimal >= half ? ceil() : floor();
+  }
+
+  BigDec setDecimalPrecision(int p) {
+    BigInt val = _limbsToBigInt(_limbs);
+    if (p > _maxAmountOfDecimalPlaces) val *= BigInt.from(10).pow(p - _maxAmountOfDecimalPlaces);
+    else if (p < _maxAmountOfDecimalPlaces) val ~/= BigInt.from(10).pow(_maxAmountOfDecimalPlaces - p);
+    return BigDec._(_bigIntToLimbs(val), p, isNegative: _isNegative);
+  }
+
+  // --- INTERNAL BITWISE HELPERS ---
+
+  static int _compareAbs(Uint64List a, Uint64List b) {
+    for (int i = 11; i >= 0; i--) {
+      if (a[i] > b[i]) return 1;
+      if (a[i] < b[i]) return -1;
     }
-    return result;
+    return 0;
   }
 
-  BigDec add(BigDec number, {int? precisionOverride}) {
-    int p = precisionOverride ?? math.max(_maxAmountOfDecimalPlaces, number._maxAmountOfDecimalPlaces);
-    BigInt limit = BigInt.from(10).pow(p);
-    BigInt resI = _integer + number._integer;
-    BigInt resD = _normalize(this, p) + _normalize(number, p);
-    if (resD >= limit) { resI += BigInt.one; resD -= limit; }
-    return BigDec(integer: resI, decimal: resD, decimalPlaces: p);
-  }
-
-  BigDec subtract(BigDec number, {int? precisionOverride}) {
-    int p = precisionOverride ?? math.max(_maxAmountOfDecimalPlaces, number._maxAmountOfDecimalPlaces);
-    BigInt limit = BigInt.from(10).pow(p);
-    BigInt resI = _integer - number._integer;
-    BigInt resD = _normalize(this, p) - _normalize(number, p);
-    if (resD < BigInt.zero) { resI -= BigInt.one; resD += limit; }
-    return BigDec(integer: resI, decimal: resD, decimalPlaces: p);
-  }
-
-  BigDec multiply(BigDec number, {int? precisionOverride}) {
-    int p = precisionOverride ?? math.max(_maxAmountOfDecimalPlaces, number._maxAmountOfDecimalPlaces);
-    BigInt scale = BigInt.from(10).pow(p);
-    BigInt raw1 = (_integer * scale) + _normalize(this, p);
-    BigInt raw2 = (number._integer * scale) + _normalize(number, p);
-    BigInt prod = raw1 * raw2;
-    BigInt fScale = scale * scale;
-    return BigDec(integer: prod ~/ fScale, decimal: (prod % fScale) ~/ scale, decimalPlaces: p);
-  }
-
-  BigDec divide(BigDec divisor, {int? precisionOverride}) {
-    int p = precisionOverride ?? math.max(_maxAmountOfDecimalPlaces, divisor._maxAmountOfDecimalPlaces);
-    BigInt scale = BigInt.from(10).pow(p);
-    BigInt num = (_integer * scale) + _normalize(this, p);
-    BigInt den = (divisor._integer * scale) + _normalize(divisor, p);
-    if (den == BigInt.zero) throw Exception("Division by zero");
-    BigInt quotient = (num * scale) ~/ den;
-    return BigDec(integer: quotient ~/ scale, decimal: quotient % scale, decimalPlaces: p);
-  }
-
-  // --- CONSTRUCTORS & FORMATTING ---
-
-  static BigDec fromBigInt(BigInt bigInteger) => BigDec(integer: bigInteger, decimal: BigInt.zero, decimalPlaces: 0);
-
-  static BigDec fromString(String decimalNumber) {
-    if (decimalNumber.contains(".")) {
-      List<String> parts = decimalNumber.split(".");
-      return BigDec(integer: BigInt.parse(parts[0]), decimal: BigInt.parse(parts[1]), decimalPlaces: parts[1].length);
+  static Uint64List _bigIntToLimbs(BigInt value) {
+    final limbs = Uint64List(12);
+    BigInt temp = value.abs();
+    for (int i = 0; i < 12; i++) {
+      limbs[i] = (temp & BigInt.from(0xFFFFFFFFFFFFFFFF)).toUnsigned(64).toInt();
+      temp >>= 64;
     }
-    return BigDec(integer: BigInt.parse(decimalNumber), decimal: BigInt.zero, decimalPlaces: 0);
+    return limbs;
+  }
+
+  static BigInt _limbsToBigInt(Uint64List limbs) {
+    BigInt res = BigInt.zero;
+    for (int i = 11; i >= 0; i--) res = (res << 64) | BigInt.from(limbs[i]);
+    return res;
+  }
+
+  // --- STRING FORMATTING ---
+
+  String toStringAsFixed(int p) {
+    BigInt full = _limbsToBigInt(_limbs);
+    BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
+    String decStr = (full % scale).abs().toString().padLeft(_maxAmountOfDecimalPlaces, '0');
+    decStr = p < decStr.length ? decStr.substring(0, p) : decStr.padRight(p, '0');
+    return "${_isNegative ? '-' : ''}${full ~/ scale}${p > 0 ? '.' : ''}$decStr";
   }
 
   @override
-  String toString() => "${_integer.toString()}.${_decimal.toString().padLeft(_maxAmountOfDecimalPlaces, '0')}";
-
-  String toStringAsFixed(int decimalPlaces) {
-    BigInt integerPart = _integer;
-    String decimalAsString = _decimal.toString().padLeft(_maxAmountOfDecimalPlaces, '0');
-    if (decimalAsString.length > _maxAmountOfDecimalPlaces) decimalAsString = decimalAsString.substring(0, _maxAmountOfDecimalPlaces);
-    List<int> decimalsList = decimalAsString.split('').map(int.parse).toList();
-    if (decimalPlaces < decimalsList.length) {
-      for (int i = decimalsList.length - 1; i >= decimalPlaces; i--) {
-        if (decimalsList[i] >= 5) {
-          if (i > 0) {
-            bool carried = false;
-            for (int j = i - 1; j >= 0; j--) {
-              if (decimalsList[j] < 9) { decimalsList[j] += 1; carried = true; break; } 
-              else { decimalsList[j] = 0; }
-            }
-            if (!carried) integerPart += BigInt.one;
-          } else { integerPart += BigInt.one; }
-        }
-      }
-      decimalsList = decimalsList.sublist(0, decimalPlaces);
-    }
-    decimalAsString = decimalsList.join().padRight(decimalPlaces, '0');
-    return decimalPlaces == 0 ? integerPart.toString() : "${integerPart.toString()}.$decimalAsString";
-  }
+  String toString() => toStringAsFixed(_maxAmountOfDecimalPlaces);
 }

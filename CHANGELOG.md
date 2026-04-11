@@ -1,3 +1,6 @@
+## 0.1.2+12
+- Used gemini to attempt to make the library more performant by storing values as List<>
+
 ## 0.1.1+11
 - Remove the GPU functions. Turns out Gemini trricked me by wrapping my CPU functions in a functions with the name gpu on it
 

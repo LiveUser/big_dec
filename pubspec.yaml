@@ -1,6 +1,6 @@
 name: big_dec
 description: A library for big calculations.
-version: 0.1.1+11
+version: 0.1.2+12
 repository: https://github.com/LiveUser/big_dec
 
 environment:
