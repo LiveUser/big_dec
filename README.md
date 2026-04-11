@@ -3,7 +3,7 @@ A library for big calculations.<br>
 Hecho en Puerto Rico por Radamés J. Valentín Reyes<br>
 Co-engineered by Copilot and Gemini<br>
 
-**Note:** This library uses high-performance `Uint64List` limb storage to handle arbitrary-precision calculations (defaulting to 200+ decimal places) with significantly reduced heap overhead.
+**Note:** This library uses high-performance `Uint8List` storage to handle arbitrary-precision calculations (defaulting to 200+ decimal places) with significantly reduced heap overhead.
 
 ## Import
 ~~~dart
@@ -11,7 +11,7 @@ import 'package:big_dec/big_dec.dart';
 ~~~
 
 ## Constructors & Parsers
-You can now convert from standard Dart types directly into `BigDec` while maintaining a specific precision cap.
+Convert standard Dart types into `BigDec` while maintaining a specific precision cap.
 
 ### From BigInt
 ~~~dart
@@ -24,97 +24,83 @@ BigDec bigDec = BigDec.fromBigInt(largeInt, precision: 200);
 BigDec bigDec = BigDec.fromInt(42, precision: 200);
 ~~~
 
-### From Double
-~~~dart
-BigDec bigDec = BigDec.fromDouble(3.14159, precision: 200);
-~~~
-
 ### From String
 ~~~dart
 BigDec bigDec = BigDec.fromString("1.23456789");
 ~~~
 
-## Addition
+## Arithmetic Operations
+The library ensures precise results by aligning decimal precision across operands.
+
+### Addition
 ~~~dart
 BigDec bigDec1 = BigDec.fromString("1.5");
 BigDec bigDec2 = BigDec.fromString("1.5");
-BigDec result = bigDec1.add(bigDec2);
-print(result.toStringAsFixed(0));
+BigDec result = bigDec1.add(bigDec2); // Result: 3.0
 ~~~
 
-## Subtraction
+### Subtraction
 ~~~dart
 BigDec bigDec1 = BigDec.fromString("3.36");
 BigDec bigDec2 = BigDec.fromString("1.5");
-BigDec result = bigDec1.subtract(bigDec2);
-print(result.toStringAsFixed(4));
+BigDec result = bigDec1.subtract(bigDec2); // Result: 1.86
 ~~~
 
-## Multiplication
+### Multiplication
 ~~~dart
 BigDec bigDec1 = BigDec.fromString("1.5");
 BigDec bigDec2 = BigDec.fromString("3");
-BigDec result = bigDec1.multiply(bigDec2);
-print(result.toStringAsFixed(4));
+BigDec result = bigDec1.multiply(bigDec2); // Result: 4.5
 ~~~
 
-## Division
+### Division
 ~~~dart
-BigDec bigDec1 = BigDec.fromString("1");
-bigDec1.setDecimalPrecision(100);
+BigDec bigDec1 = BigDec.fromString("1").setDecimalPrecision(10);
 BigDec bigDec2 = BigDec.fromString("3");
-BigDec result = bigDec1.divide(bigDec2);
-print(result.toStringAsFixed(100));
+BigDec result = bigDec1.divide(bigDec2); // Result: 0.3333333333
 ~~~
 
-## Decimal Precision
-Set a new decimal precision. Subsequent operations will adhere to this precision cap.
-~~~dart
-BigDec bigDec1 = BigDec.fromString("1");
-BigDec updated = bigDec1.setDecimalPrecision(200);
-~~~
+## Advanced Math
+Logic updated to maintain decimal alignment during complex operations.
 
-## Rounding & Truncation
-~~~dart
-BigDec bigDec1 = BigDec.fromString("1.5");
-
-// Round
-BigDec rounded = bigDec1.round();
-
-// Floor
-BigDec floorVal = bigDec1.floor();
-
-// Ceil
-BigDec ceilVal = bigDec1.ceil();
-~~~
-
-## Absolute Value
-~~~dart
-BigDec bigDec1 = BigDec.fromString("-25");
-BigDec result = bigDec1.abs();
-print(result.toString());
-~~~
-
-## Power
+### Power
 ~~~dart
 BigDec bigDec1 = BigDec.fromString("25");
-BigDec result = bigDec1.pow(BigInt.from(4));
-print(result.toString());
+BigDec result = bigDec1.pow(BigInt.from(2));
+print(result.integer); // 625
 ~~~
 
-## Square Root
+### Square Root
+Fixed scaling logic ensures that the root is correctly placed within the decimal space.
 ~~~dart
 BigDec bigDec1 = BigDec.fromString("25");
 BigDec result = bigDec1.sqrt();
-print(result.toString());
+print(result.integer); // 5
+~~~
+
+## Equality & Comparison
+The library now supports standard Dart comparison patterns.
+~~~dart
+BigDec a = BigDec.fromString("1.5");
+BigDec b = BigDec.fromString("1.50");
+
+print(a == b);      // true
+print(a.compareTo(b) == 0); // true
 ~~~
 
 ## Component Getters
-Access the underlying magnitude components as `BigInt`.
+Access underlying magnitude components as `BigInt`.
 ~~~dart
 BigDec bigDec1 = BigDec.fromString("123.456");
 print(bigDec1.integer); // 123
 print(bigDec1.decimal); // 456
+~~~
+
+## Precision Management
+Adjust decimal precision manually. Operations will adhere to this precision cap.
+~~~dart
+BigDec bigDec1 = BigDec.fromString("1");
+BigDec updated = bigDec1.setDecimalPrecision(200);
 ~~~
 
 ## String Formatting

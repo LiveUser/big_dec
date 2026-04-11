@@ -1,3 +1,6 @@
+## 0.1.4+14
+- Added a couple more methods
+
 ## 0.1.3+13
 - Binary numbers and arithmetic to attempt to improve performance
 

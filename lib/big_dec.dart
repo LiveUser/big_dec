@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'dart:math' as math;
 
-class BigDec {
+class BigDec implements Comparable<BigDec> {
   final Uint8List _bytes;
   final int _maxAmountOfDecimalPlaces;
   final bool _isNegative;
@@ -14,12 +14,22 @@ class BigDec {
 
   // --- GETTERS ---
 
+  /// Returns the integer part as a BigInt.
   BigInt get integer {
     BigInt full = _bytesToBigInt(_bytes);
     BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
     BigInt result = full ~/ scale;
     return _isNegative ? -result : result;
   }
+
+  /// Returns the decimal part as a BigInt.
+  BigInt get decimal {
+    BigInt full = _bytesToBigInt(_bytes);
+    BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
+    return (full % scale).abs();
+  }
+
+  int get decimalPlaces => _maxAmountOfDecimalPlaces;
 
   // --- CONSTRUCTORS ---
 
@@ -48,6 +58,32 @@ class BigDec {
     }
     return BigDec(integer: BigInt.parse(s), decimal: BigInt.zero, decimalPlaces: 0);
   }
+
+  // --- COMPARISON & EQUALITY ---
+
+  /// Compares this BigDec to another, aligning precision if necessary.
+  @override
+  int compareTo(BigDec other) {
+    if (_isNegative && !other._isNegative) return -1;
+    if (!_isNegative && other._isNegative) return 1;
+
+    // Align precision for accurate byte comparison
+    BigInt v1 = _bytesToBigInt(_bytes);
+    BigInt v2 = _bytesToBigInt(other.setDecimalPrecision(_maxAmountOfDecimalPlaces)._bytes);
+    
+    int cmp = v1.compareTo(v2);
+    return _isNegative ? -cmp : cmp;
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! BigDec) return false;
+    return compareTo(other) == 0;
+  }
+
+  @override
+  int get hashCode => Object.hash(_isNegative, _bytesToBigInt(_bytes), _maxAmountOfDecimalPlaces);
 
   // --- ALIGNMENT ---
 
@@ -90,7 +126,6 @@ class BigDec {
     BigInt v1 = _bytesToBigInt(_bytes);
     BigInt v2 = _bytesToBigInt(other.setDecimalPrecision(_maxAmountOfDecimalPlaces)._bytes);
     BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
-    // V1*S * V2*S = (V1*V2)*S^2 -> Divide by S to return to Result*S
     return BigDec._(_bigIntToBytes((v1 * v2) ~/ scale), _maxAmountOfDecimalPlaces, 
         isNegative: _isNegative != other._isNegative);
   }
@@ -113,13 +148,9 @@ class BigDec {
         isNegative: _isNegative && exponent.isOdd);
   }
 
-  /// Fixed SQRT with radicand pre-scaling.
   BigDec sqrt() {
     BigInt value = _bytesToBigInt(_bytes);
     BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
-    
-    // To maintain precision P, we need sqrt(Value * 10^P) where Value is already InternalValue
-    // This ensures the integer square root results in the correctly scaled fixed-point value.
     BigInt root = _sqrtBigInt(value * scale); 
     return BigDec._(_bigIntToBytes(root), _maxAmountOfDecimalPlaces, isNegative: false);
   }
