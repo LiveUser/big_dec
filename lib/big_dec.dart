@@ -13,12 +13,10 @@ class BigDec implements Comparable<BigDec> {
   }) : _isNegative = isNegative;
 
   // --- STATIC GETTERS ---
-
   static BigDec get zero => BigDec.fromInt(0);
   static BigDec get one => BigDec.fromInt(1);
 
   // --- GETTERS ---
-
   BigInt get integer {
     BigInt full = _bytesToBigInt(_bytes);
     BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
@@ -35,7 +33,6 @@ class BigDec implements Comparable<BigDec> {
   int get decimalPlaces => _maxAmountOfDecimalPlaces;
 
   // --- CONSTRUCTORS ---
-
   BigDec({
     required BigInt integer,
     required BigInt decimal,
@@ -62,58 +59,7 @@ class BigDec implements Comparable<BigDec> {
     return BigDec(integer: BigInt.parse(s), decimal: BigInt.zero, decimalPlaces: 0);
   }
 
-  // --- COMPARISON & EQUALITY ---
-
-  int compare(BigDec other) {
-    if (_isNegative && !other._isNegative) return -1;
-    if (!_isNegative && other._isNegative) return 1;
-
-    // Manual magnitude comparison to avoid recursion via setDecimalPrecision
-    Uint8List b1 = _bytes;
-    Uint8List b2 = other._bytes;
-
-    if (_maxAmountOfDecimalPlaces != other._maxAmountOfDecimalPlaces) {
-      // Use BigInt for cross-precision comparison to ensure accuracy
-      BigInt v1 = _bytesToBigInt(_bytes);
-      BigInt v2 = _bytesToBigInt(other._bytes);
-      int target = math.max(_maxAmountOfDecimalPlaces, other._maxAmountOfDecimalPlaces);
-      v1 *= BigInt.from(10).pow(target - _maxAmountOfDecimalPlaces);
-      v2 *= BigInt.from(10).pow(target - other._maxAmountOfDecimalPlaces);
-      int cmp = v1.compareTo(v2);
-      return _isNegative ? -cmp : cmp;
-    }
-
-    int cmp = _compareMagnitudes(b1, b2);
-    return _isNegative ? -cmp : cmp;
-  }
-
-  static int _compareMagnitudes(Uint8List a, Uint8List b) {
-    if (a.length > b.length) return 1;
-    if (b.length > a.length) return -1;
-    for (int i = a.length - 1; i >= 0; i--) {
-      if (a[i] > b[i]) return 1;
-      if (a[i] < b[i]) return -1;
-    }
-    return 0;
-  }
-
-  @override
-  int compareTo(BigDec other) => compare(other);
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    if (other is! BigDec) return false;
-    return compare(other) == 0;
-  }
-
-  @override
-  int get hashCode => Object.hash(_isNegative, _bytesToBigInt(_bytes), _maxAmountOfDecimalPlaces);
-
-  bool equals(BigDec other) => compare(other) == 0;
-
   // --- ALIGNMENT ---
-
   BigDec setDecimalPrecision(int newPrecision) {
     if (newPrecision == _maxAmountOfDecimalPlaces) return this;
     BigInt currentVal = _bytesToBigInt(_bytes);
@@ -126,11 +72,9 @@ class BigDec implements Comparable<BigDec> {
   }
 
   // --- ARITHMETIC ---
-
   BigDec add(BigDec other) {
-    int precision = _maxAmountOfDecimalPlaces;
-    Uint8List b1 = _bytes;
-    // Align other to this precision scale
+    int precision = math.max(_maxAmountOfDecimalPlaces, other.decimalPlaces);
+    Uint8List b1 = setDecimalPrecision(precision)._bytes;
     Uint8List b2 = other.setDecimalPrecision(precision)._bytes;
 
     if (_isNegative == other._isNegative) {
@@ -146,8 +90,8 @@ class BigDec implements Comparable<BigDec> {
   }
 
   BigDec subtract(BigDec other) {
-    int precision = _maxAmountOfDecimalPlaces;
-    Uint8List b1 = _bytes;
+    int precision = math.max(_maxAmountOfDecimalPlaces, other.decimalPlaces);
+    Uint8List b1 = setDecimalPrecision(precision)._bytes;
     Uint8List b2 = other.setDecimalPrecision(precision)._bytes;
 
     if (_isNegative != other._isNegative) {
@@ -162,25 +106,38 @@ class BigDec implements Comparable<BigDec> {
     return BigDec._(res, precision, isNegative: b1IsGreater ? _isNegative : !_isNegative);
   }
 
-  BigDec multiply(BigDec other) {
+  /// Multiplies and inherits precision. Normalizes to [precision] if provided.
+  BigDec multiply(BigDec other, {int? precision}) {
+    int outPrecision = precision ?? math.max(_maxAmountOfDecimalPlaces, other.decimalPlaces);
     BigInt v1 = _bytesToBigInt(_bytes);
-    // Align and Clamp: Use this instance's precision as the limit
-    BigInt v2 = _bytesToBigInt(other.setDecimalPrecision(_maxAmountOfDecimalPlaces)._bytes);
-    BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
+    BigInt v2 = _bytesToBigInt(other._bytes);
     
-    // Result is clamped to the scale of the host object
-    return BigDec._(_bigIntToBytes((v1 * v2) ~/ scale), _maxAmountOfDecimalPlaces, 
-        isNegative: _isNegative != other._isNegative);
+    int combinedScale = _maxAmountOfDecimalPlaces + other.decimalPlaces;
+    BigInt rawProduct = v1 * v2;
+    
+    if (combinedScale > outPrecision) {
+      rawProduct ~/= BigInt.from(10).pow(combinedScale - outPrecision);
+    } else if (combinedScale < outPrecision) {
+      rawProduct *= BigInt.from(10).pow(outPrecision - combinedScale);
+    }
+
+    return BigDec._(_bigIntToBytes(rawProduct), outPrecision, isNegative: _isNegative != other._isNegative);
   }
 
-  BigDec divide(BigDec other) {
+  /// Divides v1 by v2. Scales v1 by [precision] before division to avoid truncation.
+  BigDec divide(BigDec other, {int? precision}) {
+    int outPrecision = precision ?? _maxAmountOfDecimalPlaces;
     BigInt v1 = _bytesToBigInt(_bytes);
-    BigInt v2 = _bytesToBigInt(other.setDecimalPrecision(_maxAmountOfDecimalPlaces)._bytes);
-    if (v2 == BigInt.zero) throw IntegerDivisionByZeroException();
+    // Align divisor to host precision
+    BigInt v2 = _bytesToBigInt(other.setDecimalPrecision(other.decimalPlaces)._bytes);
+    
+    if (v2 == BigInt.zero) throw Exception("Division by zero");
 
-    BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
-    return BigDec._(_bigIntToBytes((v1 * scale) ~/ v2), _maxAmountOfDecimalPlaces, 
-        isNegative: _isNegative != other._isNegative);
+    // Shift v1 to maintain decimal integrity before integer division
+    BigInt scaleFactor = BigInt.from(10).pow(outPrecision + other.decimalPlaces - _maxAmountOfDecimalPlaces);
+    BigInt result = (v1 * scaleFactor) ~/ v2;
+
+    return BigDec._(_bigIntToBytes(result), outPrecision, isNegative: _isNegative != other._isNegative);
   }
 
   BigDec pow(BigInt exponent) {
@@ -189,8 +146,8 @@ class BigDec implements Comparable<BigDec> {
     BigDec base = this;
     BigInt e = exponent.abs();
     while (e > BigInt.zero) {
-      if (e.isOdd) res = res.multiply(base); // multiply() handles the clamping
-      base = base.multiply(base);
+      if (e.isOdd) res = res.multiply(base, precision: _maxAmountOfDecimalPlaces);
+      base = base.multiply(base, precision: _maxAmountOfDecimalPlaces);
       e >>= 1;
     }
     return res;
@@ -199,12 +156,38 @@ class BigDec implements Comparable<BigDec> {
   BigDec sqrt() {
     BigInt value = _bytesToBigInt(_bytes);
     BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
-    // Adjust value to maintain precision after sqrt
     BigInt root = _sqrtBigInt(value * scale); 
     return BigDec._(_bigIntToBytes(root), _maxAmountOfDecimalPlaces, isNegative: false);
   }
 
-  // --- PRIVATE TOOLS (BITWISE/BYTEWISE) ---
+  // --- INTERNAL TOOLS ---
+  static int _compareMagnitudes(Uint8List a, Uint8List b) {
+    if (a.length > b.length) return 1;
+    if (b.length > a.length) return -1;
+    for (int i = a.length - 1; i >= 0; i--) {
+      if (a[i] > b[i]) return 1;
+      if (a[i] < b[i]) return -1;
+    }
+    return 0;
+  }
+
+  static Uint8List _bigIntToBytes(BigInt n) {
+    BigInt temp = n.abs();
+    if (temp == BigInt.zero) return Uint8List.fromList([0]);
+    int len = (temp.bitLength + 7) >> 3;
+    final res = Uint8List(len);
+    for (int i = 0; i < len; i++) {
+      res[i] = (temp & BigInt.from(0xFF)).toInt();
+      temp >>= 8;
+    }
+    return res;
+  }
+
+  static BigInt _bytesToBigInt(Uint8List b) {
+    BigInt res = BigInt.zero;
+    for (int i = b.length - 1; i >= 0; i--) res = (res << 8) | BigInt.from(b[i]);
+    return res;
+  }
 
   Uint8List _rawAdd(Uint8List a, Uint8List b) {
     int maxLen = math.max(a.length, b.length);
@@ -214,8 +197,8 @@ class BigDec implements Comparable<BigDec> {
       int valA = i < a.length ? a[i] : 0;
       int valB = i < b.length ? b[i] : 0;
       int sum = valA + valB + carry;
-      res[i] = sum & 0xFF; // Bytewise addition
-      carry = sum >> 8;    // Bitwise carry
+      res[i] = sum & 0xFF;
+      carry = sum >> 8;
     }
     res[maxLen] = carry;
     return _trim(res);
@@ -244,22 +227,15 @@ class BigDec implements Comparable<BigDec> {
     return bytes.sublist(0, i + 1);
   }
 
-  static Uint8List _bigIntToBytes(BigInt n) {
-    BigInt temp = n.abs();
-    if (temp == BigInt.zero) return Uint8List.fromList([0]);
-    int len = (temp.bitLength + 7) >> 3;
-    final res = Uint8List(len);
-    for (int i = 0; i < len; i++) {
-      res[i] = (temp & BigInt.from(0xFF)).toInt();
-      temp >>= 8;
+  BigInt _sqrtBigInt(BigInt n) {
+    if (n < BigInt.zero) throw Exception("Negative SQRT");
+    if (n < BigInt.from(2)) return n;
+    BigInt x = BigInt.one << ((n.bitLength + 1) >> 1);
+    while (true) {
+      BigInt y = (x + n ~/ x) >> 1;
+      if (y >= x) return x;
+      x = y;
     }
-    return res;
-  }
-
-  static BigInt _bytesToBigInt(Uint8List b) {
-    BigInt res = BigInt.zero;
-    for (int i = b.length - 1; i >= 0; i--) res = (res << 8) | BigInt.from(b[i]);
-    return res;
   }
 
   BigDec abs() => BigDec._(_bytes, _maxAmountOfDecimalPlaces, isNegative: false);
@@ -281,16 +257,18 @@ class BigDec implements Comparable<BigDec> {
   @override
   String toString() => toStringAsFixed(_maxAmountOfDecimalPlaces);
 
-  BigInt _sqrtBigInt(BigInt n) {
-    if (n < BigInt.zero) throw Exception("Negative SQRT");
-    if (n < BigInt.from(2)) return n;
-    BigInt x = BigInt.one << ((n.bitLength + 1) >> 1);
-    while (true) {
-      BigInt y = (x + n ~/ x) >> 1;
-      if (y >= x) return x;
-      x = y;
-    }
+  @override
+  int compareTo(BigDec other) {
+    if (_isNegative && !other._isNegative) return -1;
+    if (!_isNegative && other._isNegative) return 1;
+    BigInt v1 = _bytesToBigInt(_bytes);
+    BigInt v2 = _bytesToBigInt(other._bytes);
+    int target = math.max(_maxAmountOfDecimalPlaces, other.decimalPlaces);
+    v1 *= BigInt.from(10).pow(target - _maxAmountOfDecimalPlaces);
+    v2 *= BigInt.from(10).pow(target - other.decimalPlaces);
+    int cmp = v1.compareTo(v2);
+    return _isNegative ? -cmp : cmp;
   }
-  
+
   static BigDec fromInt(int i, {int precision = 200}) => BigDec.fromBigInt(BigInt.from(i), precision: precision);
 }

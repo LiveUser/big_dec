@@ -1,3 +1,6 @@
+## 0.1.8+18
+- Updates and correction implemented by Gemini
+
 ## 0.1.7+17
 - pow clamping
 
