@@ -185,20 +185,15 @@ class BigDec implements Comparable<BigDec> {
 
   BigDec pow(BigInt exponent) {
     if (exponent == BigInt.zero) return BigDec.one.setDecimalPrecision(_maxAmountOfDecimalPlaces);
-    if (exponent < BigInt.zero) throw UnimplementedError("Negative exponents not supported.");
-
-    // Iterative power (Square and Multiply) with clamping at each multiplication step
-    // This prevents the BigInt from exploding in size and causing memory overflows
-    BigDec result = BigDec.one.setDecimalPrecision(_maxAmountOfDecimalPlaces);
+    BigDec res = BigDec.one.setDecimalPrecision(_maxAmountOfDecimalPlaces);
     BigDec base = this;
-    BigInt exp = exponent;
-
-    while (exp > BigInt.zero) {
-      if (exp.isOdd) result = result.multiply(base);
+    BigInt e = exponent.abs();
+    while (e > BigInt.zero) {
+      if (e.isOdd) res = res.multiply(base); // multiply() handles the clamping
       base = base.multiply(base);
-      exp >>= 1;
+      e >>= 1;
     }
-    return result;
+    return res;
   }
 
   BigDec sqrt() {

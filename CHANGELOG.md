@@ -1,3 +1,6 @@
+## 0.1.7+17
+- pow clamping
+
 ## 0.1.6+16
 - Attempt to prevent overflow when working with infinitesimal numbers
 
