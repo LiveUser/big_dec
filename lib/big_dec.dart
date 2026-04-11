@@ -12,9 +12,13 @@ class BigDec implements Comparable<BigDec> {
     bool isNegative = false,
   }) : _isNegative = isNegative;
 
+  // --- STATIC GETTERS ---
+
+  static BigDec get zero => BigDec.fromInt(0);
+  static BigDec get one => BigDec.fromInt(1);
+
   // --- GETTERS ---
 
-  /// Returns the integer part as a BigInt.
   BigInt get integer {
     BigInt full = _bytesToBigInt(_bytes);
     BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
@@ -22,7 +26,6 @@ class BigDec implements Comparable<BigDec> {
     return _isNegative ? -result : result;
   }
 
-  /// Returns the decimal part as a BigInt.
   BigInt get decimal {
     BigInt full = _bytesToBigInt(_bytes);
     BigInt scale = BigInt.from(10).pow(_maxAmountOfDecimalPlaces);
@@ -61,13 +64,11 @@ class BigDec implements Comparable<BigDec> {
 
   // --- COMPARISON & EQUALITY ---
 
-  /// Compares this BigDec to another, aligning precision if necessary.
-  @override
-  int compareTo(BigDec other) {
+  /// Primary comparison method. Returns -1, 0, or 1.
+  int compare(BigDec other) {
     if (_isNegative && !other._isNegative) return -1;
     if (!_isNegative && other._isNegative) return 1;
 
-    // Align precision for accurate byte comparison
     BigInt v1 = _bytesToBigInt(_bytes);
     BigInt v2 = _bytesToBigInt(other.setDecimalPrecision(_maxAmountOfDecimalPlaces)._bytes);
     
@@ -76,14 +77,19 @@ class BigDec implements Comparable<BigDec> {
   }
 
   @override
+  int compareTo(BigDec other) => compare(other);
+
+  @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     if (other is! BigDec) return false;
-    return compareTo(other) == 0;
+    return compare(other) == 0;
   }
 
   @override
   int get hashCode => Object.hash(_isNegative, _bytesToBigInt(_bytes), _maxAmountOfDecimalPlaces);
+
+  bool equals(BigDec other) => compare(other) == 0;
 
   // --- ALIGNMENT ---
 
@@ -114,10 +120,14 @@ class BigDec implements Comparable<BigDec> {
       return subtract(other.setDecimalPrecision(_maxAmountOfDecimalPlaces));
     }
     if (_isNegative != other._isNegative) return add(other.abs());
-    int cmp = _compareAbs(_bytes, other._bytes);
-    if (cmp == 0) return BigDec.fromInt(0, precision: _maxAmountOfDecimalPlaces);
-
-    bool thisIsGreater = cmp > 0;
+    
+    // Compare magnitudes to determine result sign
+    BigInt v1 = _bytesToBigInt(_bytes);
+    BigInt v2 = _bytesToBigInt(other._bytes);
+    
+    if (v1 == v2) return BigDec.fromInt(0, precision: _maxAmountOfDecimalPlaces);
+    bool thisIsGreater = v1 > v2;
+    
     final res = _rawSubtract(thisIsGreater ? _bytes : other._bytes, thisIsGreater ? other._bytes : _bytes);
     return BigDec._(res, _maxAmountOfDecimalPlaces, isNegative: thisIsGreater ? _isNegative : !_isNegative);
   }
@@ -189,14 +199,6 @@ class BigDec implements Comparable<BigDec> {
       res[i] = sub < 0 ? sub + 256 : sub;
     }
     return _trim(res);
-  }
-
-  static int _compareAbs(Uint8List a, Uint8List b) {
-    if (a.length != b.length) return a.length.compareTo(b.length);
-    for (int i = a.length - 1; i >= 0; i--) {
-      if (a[i] != b[i]) return a[i].compareTo(b[i]);
-    }
-    return 0;
   }
 
   Uint8List _trim(Uint8List bytes) {

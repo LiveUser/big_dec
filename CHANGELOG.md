@@ -1,3 +1,7 @@
+## 0.1.5+15
+- More methods
+- Fixes
+
 ## 0.1.4+14
 - Added a couple more methods
 
