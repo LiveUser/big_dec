@@ -25,7 +25,7 @@ void main() {
     });
 
     test('Division', () {
-      BigDec bigDec1 = BigDec.fromString("1").setDecimalPrecision(10);
+      BigDec bigDec1 = BigDec.fromString("1").setDecimalPrecision(200);
       BigDec bigDec2 = BigDec.fromString("3");
       BigDec result = bigDec1.divide(bigDec2);
       print(result);
