@@ -1,3 +1,6 @@
+## 0.1.9+19
+- fromString now parses scientific notation
+
 ## 0.1.8+18
 - Updates and correction implemented by Gemini
 

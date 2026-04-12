@@ -46,17 +46,61 @@ class BigDec implements Comparable<BigDec> {
       BigDec(integer: value, decimal: BigInt.zero, decimalPlaces: precision);
 
   factory BigDec.fromString(String s) {
-    bool neg = s.startsWith('-');
-    String clean = neg ? s.substring(1) : s;
+    // 1. Normalize input: lowercase and remove whitespace
+    String input = s.trim().toLowerCase();
+    if (input.isEmpty) return BigDec.zero;
+
+    // 2. Handle Scientific Notation (e.g., 1.23e-10)
+    if (input.contains('e')) {
+      var parts = input.split('e');
+      BigDec coefficient = BigDec.fromString(parts[0]);
+      int exponent = int.parse(parts[1]);
+
+      if (exponent == 0) return coefficient;
+      
+      if (exponent > 0) {
+        // For positive exponents, we shift the decimal right by multiplying
+        return coefficient.multiply(
+          BigDec.fromBigInt(BigInt.from(10).pow(exponent), precision: 0),
+          precision: coefficient.decimalPlaces
+        );
+      } else {
+        // For negative exponents, increase precision and divide
+        int newPrecision = coefficient.decimalPlaces + exponent.abs();
+        return coefficient.divide(
+          BigDec.fromBigInt(BigInt.from(10).pow(exponent.abs()), precision: 0),
+          precision: newPrecision
+        );
+      }
+    }
+
+    // 3. Handle Standard Decimal Notation
+    bool neg = input.startsWith('-');
+    String clean = neg ? input.substring(1) : input;
+    
     if (clean.contains(".")) {
       var parts = clean.split(".");
-      int precision = parts[1].length;
+      String intStr = parts[0].isEmpty ? "0" : parts[0];
+      String decStr = parts[1];
+      int precision = decStr.length;
+      
+      // Combine integer and decimal into a single BigInt based on precision
+      BigInt integerPart = BigInt.parse(intStr);
+      BigInt decimalPart = BigInt.parse(decStr);
+      
       return BigDec(
-          integer: BigInt.parse(neg ? "-${parts[0]}" : parts[0]),
-          decimal: BigInt.parse(parts[1]),
-          decimalPlaces: precision);
+        integer: neg ? -integerPart : integerPart,
+        decimal: decimalPart,
+        decimalPlaces: precision,
+      );
     }
-    return BigDec(integer: BigInt.parse(s), decimal: BigInt.zero, decimalPlaces: 0);
+
+    // 4. Handle pure Integers
+    return BigDec(
+      integer: BigInt.parse(input), 
+      decimal: BigInt.zero, 
+      decimalPlaces: 0
+    );
   }
 
   // --- ALIGNMENT ---
