@@ -50,56 +50,56 @@ class BigDec implements Comparable<BigDec> {
     String input = s.trim().toLowerCase();
     if (input.isEmpty) return BigDec.zero;
 
-    // 2. Handle Scientific Notation (e.g., 1.23e-10)
+    // 2. Handle sign
+    bool neg = input.startsWith('-');
+    if (neg || input.startsWith('+')) {
+      input = input.substring(1);
+    }
+
+    // 3. Handle Scientific Notation (split into base and exponent)
+    String basePart;
+    int exponent = 0;
     if (input.contains('e')) {
       var parts = input.split('e');
-      BigDec coefficient = BigDec.fromString(parts[0]);
-      int exponent = int.parse(parts[1]);
-
-      if (exponent == 0) return coefficient;
-      
-      if (exponent > 0) {
-        // For positive exponents, we shift the decimal right by multiplying
-        return coefficient.multiply(
-          BigDec.fromBigInt(BigInt.from(10).pow(exponent), precision: 0),
-          precision: coefficient.decimalPlaces
-        );
-      } else {
-        // For negative exponents, increase precision and divide
-        int newPrecision = coefficient.decimalPlaces + exponent.abs();
-        return coefficient.divide(
-          BigDec.fromBigInt(BigInt.from(10).pow(exponent.abs()), precision: 0),
-          precision: newPrecision
-        );
-      }
+      basePart = parts[0];
+      exponent = int.tryParse(parts[1]) ?? 0;
+    } else {
+      basePart = input;
     }
 
-    // 3. Handle Standard Decimal Notation
-    bool neg = input.startsWith('-');
-    String clean = neg ? input.substring(1) : input;
-    
-    if (clean.contains(".")) {
-      var parts = clean.split(".");
+    // 4. Parse the base decimal (e.g., "6.67430")
+    BigInt combinedValue;
+    int decimalPlaces = 0;
+
+    if (basePart.contains(".")) {
+      var parts = basePart.split(".");
       String intStr = parts[0].isEmpty ? "0" : parts[0];
       String decStr = parts[1];
-      int precision = decStr.length;
       
-      // Combine integer and decimal into a single BigInt based on precision
-      BigInt integerPart = BigInt.parse(intStr);
-      BigInt decimalPart = BigInt.parse(decStr);
+      // The precision of the coefficient itself
+      decimalPlaces = decStr.length;
       
-      return BigDec(
-        integer: neg ? -integerPart : integerPart,
-        decimal: decimalPart,
-        decimalPlaces: precision,
-      );
+      // Combine "6" and "67430" into 667430
+      combinedValue = BigInt.parse(intStr + decStr);
+    } else {
+      combinedValue = BigInt.parse(basePart);
     }
 
-    // 4. Handle pure Integers
-    return BigDec(
-      integer: BigInt.parse(input), 
-      decimal: BigInt.zero, 
-      decimalPlaces: 0
+    // 5. Apply Exponent logic to determine final scale
+    // Moving the decimal point: final scale = (existing places) - (exponent)
+    int finalPrecision = decimalPlaces - exponent;
+
+    if (finalPrecision < 0) {
+      // If exponent was large and positive, we add trailing zeros
+      combinedValue *= BigInt.from(10).pow(finalPrecision.abs());
+      finalPrecision = 0;
+    }
+
+    // 6. Return internal instance
+    return BigDec._(
+      _bigIntToBytes(combinedValue), 
+      finalPrecision, 
+      isNegative: neg
     );
   }
 

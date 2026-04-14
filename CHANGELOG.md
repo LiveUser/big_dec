@@ -1,3 +1,6 @@
+## 0.2.0+20
+- Can now parse negative exponents in scientific notation when parsing from string
+
 ## 0.1.9+19
 - fromString now parses scientific notation
 

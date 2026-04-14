@@ -99,5 +99,9 @@ void main() {
       
       expect(result.toString(), equals("1.2100000000"));
     });
+    test("Parse negative exponents", (){
+      BigDec G = BigDec.fromString("6.67430e-11");
+      print(G.toString());
+    });
   });
 }
