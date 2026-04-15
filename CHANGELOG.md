@@ -1,3 +1,7 @@
+## 0.2.1+21
+- Copilot helped me add new methods to the class
+- Gemini rewrote the README.md
+
 ## 0.2.0+20
 - Can now parse negative exponents in scientific notation when parsing from string
 
